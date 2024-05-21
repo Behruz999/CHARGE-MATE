@@ -19,8 +19,16 @@ module.exports = function secureApp(app) {
           callback(new Error("Not allowed by CORS"));
         }
       },
-      methods: ["GET", "POST", "PATCH", "DELETE"],
-      allowedHeaders: ["Content-Type", "Authorization", "application/json"],
+      // 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+      methods: ["GET", "POST", "PATCH", "DELETE", "HEAD", "PUT", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "application/json",
+        "Origin",
+        "X-Requested-With",
+        "Accept",
+      ],
       credentials: true,
       maxAge: 600,
     })
