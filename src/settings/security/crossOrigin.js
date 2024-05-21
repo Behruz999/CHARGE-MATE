@@ -1,36 +1,13 @@
 const cors = require("cors");
 
-const allowedOrigins = [
-  "http://localhost:4000",
-  "https://charge-mate-client.vercel.app",
-  "https://charge-mate-client-ndc0op1yg-darksideevils-projects.vercel.app",
-  "https://charge-mate-client.vercel.app/charge-mate.railway.internal",
-  "charge-mate.up.railway.app",
-];
+const corsOptions = {
+  origin: "https://charge-mate-client.vercel.app",
+  methods: "GET,HEAD,OPTIONS,POST,PUT",
+  allowedHeaders:
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+};
 
 module.exports = function secureApp(app) {
-  app.use(
-    cors({
-      origin: function (origin, callback) {
-        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-          callback(null, true);
-        } else {
-          console.log("Not allowed by CORS");
-          callback(new Error("Not allowed by CORS"));
-        }
-      },
-      // 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-      methods: ["GET", "POST", "PATCH", "DELETE", "HEAD", "PUT", "OPTIONS"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "application/json",
-        "Origin",
-        "X-Requested-With",
-        "Accept",
-      ],
-      credentials: true,
-      maxAge: 600,
-    })
-  );
+  app.use(cors(corsOptions));
+  app.options("*", cors(corsOptions)); // Pre-flight requests
 };
