@@ -3,7 +3,7 @@ const cors = require("cors");
 const allowedOrigins = [
   "http://localhost:4000",
   "https://charge-mate-client.vercel.app",
-  "https://charge-mate-client.vercel.app/charge-mate.railway.internal"
+  "https://charge-mate-client.vercel.app/charge-mate.railway.internal",
 ];
 
 module.exports = function secureApp(app) {
@@ -13,6 +13,7 @@ module.exports = function secureApp(app) {
         if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
           callback(null, true);
         } else {
+          console.log("Not allowed by CORS");
           callback(new Error("Not allowed by CORS"));
         }
       },
