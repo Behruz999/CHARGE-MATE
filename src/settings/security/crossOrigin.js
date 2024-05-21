@@ -1,6 +1,10 @@
 const cors = require("cors");
 
-const allowedOrigins = ["http://localhost:4000", "https://charge-mate-client.vercel.app"];
+const allowedOrigins = [
+  "http://localhost:4000",
+  "https://charge-mate-client.vercel.app",
+  "https://charge-mate-client.vercel.app/charge-mate.railway.internal"
+];
 
 module.exports = function secureApp(app) {
   app.use(
@@ -12,10 +16,10 @@ module.exports = function secureApp(app) {
           callback(new Error("Not allowed by CORS"));
         }
       },
-      methods: ["GET", "POST"],
+      methods: ["GET", "POST", "PATCH", "DELETE"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
       maxAge: 600,
     })
   );
-}
+};
