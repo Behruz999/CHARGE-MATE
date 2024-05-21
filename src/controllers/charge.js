@@ -426,8 +426,6 @@ async function editOne(req, res) {
         runValidators: true,
       }
     )
-      .populate("family", "name")
-      .populate("user", "nickname individual");
     if (modifiedCharge == null) {
       return res.status(404).send({ msg: "Charge not found !" });
     }
