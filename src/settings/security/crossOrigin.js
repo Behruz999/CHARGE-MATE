@@ -2,7 +2,7 @@ const cors = require("cors");
 
 const allowedOrigins = [
   "http://localhost:4000",
-  "https://charge-mate-client.vercel.app",
+  "https://charge-mate-client.vercel.app/",
   "https://charge-mate-client.vercel.app/charge-mate.railway.internal",
 ];
 
