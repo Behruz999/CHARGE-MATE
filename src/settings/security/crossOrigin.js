@@ -2,8 +2,9 @@ const cors = require("cors");
 
 const allowedOrigins = [
   "http://localhost:4000",
-  "https://charge-mate-client.vercel.app/",
+  "https://charge-mate-client.vercel.app",
   "https://charge-mate-client.vercel.app/charge-mate.railway.internal",
+  "charge-mate.up.railway.app",
 ];
 
 module.exports = function secureApp(app) {
@@ -18,7 +19,7 @@ module.exports = function secureApp(app) {
         }
       },
       methods: ["GET", "POST", "PATCH", "DELETE"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "application/json"],
       credentials: true,
       maxAge: 600,
     })
