@@ -2,7 +2,7 @@ const cors = require("cors");
 
 const corsOptions = {
   origin: "https://charge-mate-client.vercel.app",
-  methods: "GET,HEAD,OPTIONS,POST,PUT",
+  methods: "GET,HEAD,OPTIONS,POST,PUT,PATCH",
   allowedHeaders:
     "Origin, X-Requested-With, Content-Type, Accept, Authorization",
 };
