@@ -4,7 +4,7 @@ const { Port, DB } = require("./settings/DB/db");
 const express = require("express");
 const app = express();
 const mainRoute = require("./mainRouter");
-const { secureApp } = require("./settings/security/crossOrigin");
+const secureApp = require("./settings/security/crossOrigin");
 
 secureApp(app);
 
