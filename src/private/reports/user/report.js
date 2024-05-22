@@ -2,7 +2,51 @@ const Charge = require("../../../models/charge");
 const User = require("../../../models/user");
 const ObjectId = require("mongoose").Types.ObjectId;
 
-// Scanning, configuring dates whether user provided date details or not
+// // Scanning, configuring dates whether user provided date details or not
+// function inspectDate(day, month, year, todayFlag, yesterdayFlag) {
+//   day = parseInt(day);
+//   month = parseInt(month);
+//   year = parseInt(year);
+
+//   let startDate, endDate;
+
+//   if (todayFlag) {
+//     const today = new Date();
+//     startDate = new Date(
+//       today.getFullYear(),
+//       today.getMonth(),
+//       today.getDate()
+//     );
+//     endDate = new Date(
+//       today.getFullYear(),
+//       today.getMonth(),
+//       today.getDate() + 1
+//     ); // End of the day
+//   } else if (yesterdayFlag) {
+//     // Get yesterday's date
+//     const yesterdayy = new Date();
+//     yesterdayy.setDate(yesterdayy.getDate() - 1);
+
+//     // Set the time to the start of yesterday
+//     yesterdayy.setHours(0, 0, 0, 0);
+//     // Set the time to the end of yesterday
+//     const endOfYesterday = new Date(yesterdayy);
+//     endOfYesterday.setDate(endOfYesterday.getDate() + 1);
+//     startDate = yesterdayy;
+//     endDate = endOfYesterday;
+//   } else if (day && month && year) {
+//     startDate = new Date(year, month - 1, day);
+//     endDate = new Date(year, month - 1, day + 1); // End of the day
+//   } else if (!day && month && year) {
+//     startDate = new Date(year, month - 1, 1); // Start of the month
+//     endDate = new Date(year, month, 0); // End of the month (last day)
+//   } else {
+//     return null; // No filters for date, return null
+//   }
+
+//   return { startDate, endDate };
+// }
+
 function inspectDate(day, month, year, todayFlag, yesterdayFlag) {
   day = parseInt(day);
   month = parseInt(month);
@@ -23,17 +67,19 @@ function inspectDate(day, month, year, todayFlag, yesterdayFlag) {
       today.getDate() + 1
     ); // End of the day
   } else if (yesterdayFlag) {
-    // Get yesterday's date
-    const yesterdayy = new Date();
-    yesterdayy.setDate(yesterdayy.getDate() - 1);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
 
-    // Set the time to the start of yesterday
-    yesterdayy.setHours(0, 0, 0, 0);
-    // Set the time to the end of yesterday
-    const endOfYesterday = new Date(yesterdayy);
-    endOfYesterday.setDate(endOfYesterday.getDate() + 1);
-    startDate = yesterdayy;
-    endDate = endOfYesterday;
+    startDate = new Date(
+      yesterday.getFullYear(),
+      yesterday.getMonth(),
+      yesterday.getDate()
+    );
+    endDate = new Date(
+      yesterday.getFullYear(),
+      yesterday.getMonth(),
+      yesterday.getDate() + 1
+    ); // End of the day
   } else if (day && month && year) {
     startDate = new Date(year, month - 1, day);
     endDate = new Date(year, month - 1, day + 1); // End of the day
@@ -94,14 +140,15 @@ async function getIndividualCharges(req, res) {
         user: new ObjectId(existUser._id),
         individual: existUser.individual,
       };
+
       // Initialize an empty match criteria array
       const matchCriteria = [];
 
       // Add conditions based on user input
       if (day) {
-        $match.$expr = {
-          $eq: [{ $dayOfMonth: "$createdAt" }, parseInt(day)],
-        };
+        matchCriteria.push({
+          $expr: { $eq: [{ $dayOfMonth: "$createdAt" }, parseInt(day)] },
+        });
       }
       if (month) {
         matchCriteria.push({
@@ -115,9 +162,10 @@ async function getIndividualCharges(req, res) {
       }
 
       if (matchCriteria.length > 0) {
-        $match.$or = matchCriteria;
+        $match.$and = matchCriteria;
       }
 
+      // Aggregation pipeline
       indvReports = await Charge.aggregate([
         {
           $match,
@@ -125,9 +173,29 @@ async function getIndividualCharges(req, res) {
         {
           $lookup: {
             from: "families",
-            localField: "family",
-            foreignField: "_id",
+            let: { familyId: "$family" },
+            pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$familyId"] } } }],
             as: "familyDetails",
+          },
+        },
+        {
+          $addFields: {
+            familyDetails: { $arrayElemAt: ["$familyDetails", 0] },
+            family: {
+              $cond: {
+                if: {
+                  $or: [
+                    { $eq: ["$familyDetails", null] },
+                    { $eq: ["$familyDetails", []] },
+                  ],
+                },
+                then: null,
+                else: {
+                  _id: "$familyDetails._id",
+                  name: "$familyDetails.name",
+                },
+              },
+            },
           },
         },
         {
@@ -139,10 +207,10 @@ async function getIndividualCharges(req, res) {
           },
         },
         {
-          $unwind: "$familyDetails",
-        },
-        {
-          $unwind: "$consumer",
+          $unwind: {
+            path: "$consumer",
+            preserveNullAndEmptyArrays: true,
+          },
         },
         {
           $group: {
@@ -150,8 +218,8 @@ async function getIndividualCharges(req, res) {
             qty: { $sum: "$quantity" },
             total: { $sum: { $multiply: ["$quantity", "$price"] } },
             created: { $first: "$createdAt" },
-            consumer: { $first: "$consumer" }, // Use $first to keep the first encountered value of 'consumer' within each group
-            familys: { $first: "$familyDetails" },
+            consumer: { $first: "$consumer" },
+            family: { $first: "$family" },
           },
         },
         {
@@ -161,10 +229,7 @@ async function getIndividualCharges(req, res) {
             quantity: "$qty",
             price: "$_id.price",
             total: 1,
-            family: {
-              _id: "$familys._id",
-              name: "$familys.name",
-            },
+            family: 1,
             user: {
               _id: "$consumer._id",
               nickname: "$consumer.nickname",
@@ -172,20 +237,117 @@ async function getIndividualCharges(req, res) {
             },
             time: {
               $dateToString: {
-                format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                date: "$created", // Date field to extract time from
+                format: "%H:%M:%S",
+                date: "$created",
               },
             },
             date: {
               $dateToString: {
-                format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                date: "$created", // Date field to format
+                format: "%d-%m-%Y",
+                date: "$created",
               },
             },
             _id: 0,
           },
         },
       ]);
+      // // Construct the $match stage with the combined criteria
+      // const $match = {
+      //   user: new ObjectId(existUser._id),
+      //   individual: existUser.individual,
+      // };
+      // // Initialize an empty match criteria array
+      // const matchCriteria = [];
+
+      // // Add conditions based on user input
+      // if (day) {
+      //   $match.$expr = {
+      //     $eq: [{ $dayOfMonth: "$createdAt" }, parseInt(day)],
+      //   };
+      // }
+      // if (month) {
+      //   matchCriteria.push({
+      //     $expr: { $eq: [{ $month: "$createdAt" }, parseInt(month)] },
+      //   });
+      // }
+      // if (year) {
+      //   matchCriteria.push({
+      //     $expr: { $eq: [{ $year: "$createdAt" }, parseInt(year)] },
+      //   });
+      // }
+
+      // if (matchCriteria.length > 0) {
+      //   $match.$or = matchCriteria;
+      // }
+
+      // indvReports = await Charge.aggregate([
+      //   {
+      //     $match,
+      //   },
+      //   {
+      //     $lookup: {
+      //       from: "families",
+      //       localField: "family",
+      //       foreignField: "_id",
+      //       as: "familyDetails",
+      //     },
+      //   },
+      //   {
+      //     $lookup: {
+      //       from: "users",
+      //       localField: "user",
+      //       foreignField: "_id",
+      //       as: "consumer",
+      //     },
+      //   },
+      //   {
+      //     $unwind: "$familyDetails",
+      //   },
+      //   {
+      //     $unwind: "$consumer",
+      //   },
+      //   {
+      //     $group: {
+      //       _id: { title: "$title", price: "$price", currency: "$currency" },
+      //       qty: { $sum: "$quantity" },
+      //       total: { $sum: { $multiply: ["$quantity", "$price"] } },
+      //       created: { $first: "$createdAt" },
+      //       consumer: { $first: "$consumer" }, // Use $first to keep the first encountered value of 'consumer' within each group
+      //       familys: { $first: "$familyDetails" },
+      //     },
+      //   },
+      //   {
+      //     $project: {
+      //       title: "$_id.title",
+      //       currency: "$_id.currency",
+      //       quantity: "$qty",
+      //       price: "$_id.price",
+      //       total: 1,
+      //       family: {
+      //         _id: "$familys._id",
+      //         name: "$familys.name",
+      //       },
+      //       user: {
+      //         _id: "$consumer._id",
+      //         nickname: "$consumer.nickname",
+      //         individual: "$consumer.individual",
+      //       },
+      //       time: {
+      //         $dateToString: {
+      //           format: "%H:%M:%S", // Format string for "HH:MM:SS"
+      //           date: "$created", // Date field to extract time from
+      //         },
+      //       },
+      //       date: {
+      //         $dateToString: {
+      //           format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
+      //           date: "$created", // Date field to format
+      //         },
+      //       },
+      //       _id: 0,
+      //     },
+      //   },
+      // ]);
     } else if (!dateRange) {
       // const matchCriteria = {
       //   user: new ObjectId(existUser._id),
@@ -285,18 +447,115 @@ async function getIndividualCharges(req, res) {
           },
         },
       ]);
+    }
+    // If provides date details
+    else {
+      const { startDate, endDate } = dateRange;
+
+      indvReports = await Charge.aggregate([
+        {
+          $match: {
+            user: new ObjectId(existUser._id),
+            individual: existUser.individual,
+            ...(currency ? { currency } : {}),
+            createdAt: {
+              $gte: startDate,
+              $lte: endDate,
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "families",
+            let: { familyId: "$family" },
+            pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$familyId"] } } }],
+            as: "familyDetails",
+          },
+        },
+        {
+          $addFields: {
+            familyDetails: { $arrayElemAt: ["$familyDetails", 0] },
+            family: {
+              $cond: {
+                if: {
+                  $or: [
+                    { $eq: ["$familyDetails", null] },
+                    { $eq: ["$familyDetails", []] },
+                  ],
+                },
+                then: null,
+                else: {
+                  _id: "$familyDetails._id",
+                  name: "$familyDetails.name",
+                },
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "user",
+            foreignField: "_id",
+            as: "consumer",
+          },
+        },
+        {
+          $unwind: {
+            path: "$consumer",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $group: {
+            _id: { title: "$title", price: "$price", currency: "$currency" },
+            qty: { $sum: "$quantity" },
+            total: { $sum: { $multiply: ["$quantity", "$price"] } },
+            created: { $first: "$createdAt" },
+            consumer: { $first: "$consumer" },
+            family: { $first: "$family" },
+          },
+        },
+        {
+          $project: {
+            title: "$_id.title",
+            currency: "$_id.currency",
+            quantity: "$qty",
+            price: "$_id.price",
+            total: 1,
+            family: 1,
+            user: {
+              _id: "$consumer._id",
+              nickname: "$consumer.nickname",
+              individual: "$consumer.individual",
+            },
+            time: {
+              $dateToString: {
+                format: "%H:%M:%S",
+                date: "$created",
+              },
+            },
+            date: {
+              $dateToString: {
+                format: "%d-%m-%Y",
+                date: "$created",
+              },
+            },
+            _id: 0,
+          },
+        },
+      ]);
 
       // indvReports = await Charge.aggregate([
       //   {
       //     $match: {
       //       user: new ObjectId(existUser._id),
       //       individual: existUser.individual,
-      //       $or: [
-      //         { currency: { $exists: false } }, // Handle case where currency is not present
-      //         { currency: { $eq: currency } }, // Handle case where currency matches the provided value
-      //       ],
+      //       createdAt: {
+      //         $gte: startDate,
+      //         $lte: endDate,
+      //       },
       //     },
-      //     // ...(currency ? { currency } : {}),
       //   },
       //   {
       //     $lookup: {
@@ -362,86 +621,6 @@ async function getIndividualCharges(req, res) {
       //     },
       //   },
       // ]);
-    }
-    // If provides date details
-    else {
-      const { startDate, endDate } = dateRange;
-
-      indvReports = await Charge.aggregate([
-        {
-          $match: {
-            user: new ObjectId(existUser._id),
-            individual: existUser.individual,
-            createdAt: {
-              $gte: startDate,
-              $lte: endDate,
-            },
-          },
-        },
-        {
-          $lookup: {
-            from: "families",
-            localField: "family",
-            foreignField: "_id",
-            as: "familyDetails",
-          },
-        },
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "consumer",
-          },
-        },
-        {
-          $unwind: "$familyDetails",
-        },
-        {
-          $unwind: "$consumer",
-        },
-        {
-          $group: {
-            _id: { title: "$title", price: "$price", currency: "$currency" },
-            qty: { $sum: "$quantity" },
-            total: { $sum: { $multiply: ["$quantity", "$price"] } },
-            created: { $first: "$createdAt" },
-            consumer: { $first: "$consumer" }, // Use $first to keep the first encountered value of 'consumer' within each group
-            familys: { $first: "$familyDetails" },
-          },
-        },
-        {
-          $project: {
-            title: "$_id.title",
-            currency: "$_id.currency",
-            quantity: "$qty",
-            price: "$_id.price",
-            total: 1,
-            family: {
-              _id: "$familys._id",
-              name: "$familys.name",
-            },
-            user: {
-              _id: "$consumer._id",
-              nickname: "$consumer.nickname",
-              individual: "$consumer.individual",
-            },
-            time: {
-              $dateToString: {
-                format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                date: "$created", // Date field to extract time from
-              },
-            },
-            date: {
-              $dateToString: {
-                format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                date: "$created", // Date field to format
-              },
-            },
-            _id: 0,
-          },
-        },
-      ]);
     }
 
     // Find the most expensive transaction
