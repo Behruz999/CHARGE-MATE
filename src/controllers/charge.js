@@ -27,98 +27,6 @@ async function add(req, res) {
   }
 }
 
-// async function getAll(req, res) {
-//   try {
-//     const allCharges = await Charge.aggregate([
-//       { $match: {} },
-//       {
-//         $lookup: {
-//           from: "families",
-//           localField: "family",
-//           foreignField: "_id",
-//           as: "familyDetails",
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "users",
-//           localField: "user",
-//           foreignField: "_id",
-//           as: "userDetails",
-//         },
-//       },
-//       {
-//         $unwind: {
-//           path: "$familyDetails",
-//           preserveNullAndEmptyArrays: true, // Include documents even if familyDetails array is empty (no matching documents)
-//         },
-//       },
-//       {
-//         $unwind: {
-//           path: "$userDetails",
-//           preserveNullAndEmptyArrays: true,
-//         },
-//       },
-//       {
-//         $project: {
-//           title: 1,
-//           category: 1,
-//           quantity: 1,
-//           price: 1,
-//           individual: 1,
-//           currency: 1,
-//           family: {
-//             _id: "$familyDetails._id",
-//             name: "$familyDetails.name",
-//           },
-//           user: {
-//             _id: "$userDetails._id",
-//             nickname: "$userDetails.nickname",
-//             individual: "$userDetails.individual",
-//           },
-//           createdAt: {
-//             $concat: [
-//               {
-//                 $dateToString: {
-//                   format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-//                   date: "$createdAt", // Date field to format
-//                 },
-//               },
-//               " ", // Separator between date and time
-//               {
-//                 $dateToString: {
-//                   format: "%H:%M:%S", // Format string for "HH:MM:SS"
-//                   date: "$createdAt", // Date field to extract time from
-//                 },
-//               },
-//             ],
-//           },
-//           updatedAt: {
-//             $concat: [
-//               {
-//                 $dateToString: {
-//                   format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-//                   date: "$updatedAt", // Date field to format
-//                 },
-//               },
-//               " ", // Separator between date and time
-//               {
-//                 $dateToString: {
-//                   format: "%H:%M:%S", // Format string for "HH:MM:SS"
-//                   date: "$updatedAt", // Date field to extract time from
-//                 },
-//               },
-//             ],
-//           },
-//         },
-//       },
-//     ]);
-//     return res.status(200).json(allCharges);
-//   } catch (err) {
-//     return res.status(500).send({ msg: err.message ? err.message : err });
-//   }
-// }
-
 async function getAll(req, res) {
   try {
     const allCharges = await Charge.aggregate([
@@ -140,15 +48,9 @@ async function getAll(req, res) {
         },
       },
       {
-        $unwind: {
-          path: "$familyDetails",
-          preserveNullAndEmptyArrays: true, // Include documents even if familyDetails array is empty (no matching documents)
-        },
-      },
-      {
-        $unwind: {
-          path: "$userDetails",
-          preserveNullAndEmptyArrays: true,
+        $addFields: {
+          familyDetails: { $arrayElemAt: ["$familyDetails", 0] },
+          userDetails: { $arrayElemAt: ["$userDetails", 0] },
         },
       },
       {
@@ -160,59 +62,22 @@ async function getAll(req, res) {
           individual: 1,
           currency: 1,
           family: {
-            $cond: {
-              if: { $eq: ["$familyDetails", null] },
-              then: null,
-              else: {
-                _id: "$familyDetails._id",
-                name: "$familyDetails.name",
-              },
-            },
+            $ifNull: ["$familyDetails", null],
           },
           user: {
-            $cond: {
-              if: { $eq: ["$userDetails", null] },
-              then: null,
-              else: {
-                _id: "$userDetails._id",
-                nickname: "$userDetails.nickname",
-                individual: "$userDetails.individual",
-              },
-            },
+            $ifNull: ["$userDetails", null],
           },
           createdAt: {
-            $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$createdAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$createdAt", // Date field to extract time from
-                },
-              },
-            ],
+            $dateToString: {
+              format: "%d-%m-%Y %H:%M:%S",
+              date: "$createdAt",
+            },
           },
           updatedAt: {
-            $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$updatedAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$updatedAt", // Date field to extract time from
-                },
-              },
-            ],
+            $dateToString: {
+              format: "%d-%m-%Y %H:%M:%S",
+              date: "$updatedAt",
+            },
           },
         },
       },
@@ -248,15 +113,9 @@ async function getOne(req, res) {
         },
       },
       {
-        $unwind: {
-          path: "$familyDetails",
-          preserveNullAndEmptyArrays: true, // Include documents even if familyDetails array is empty (no matching documents)
-        },
-      },
-      {
-        $unwind: {
-          path: "$userDetails",
-          preserveNullAndEmptyArrays: true,
+        $addFields: {
+          familyDetails: { $arrayElemAt: ["$familyDetails", 0] },
+          userDetails: { $arrayElemAt: ["$userDetails", 0] },
         },
       },
       {
@@ -268,47 +127,22 @@ async function getOne(req, res) {
           individual: 1,
           currency: 1,
           family: {
-            _id: "$familyDetails._id",
-            name: "$familyDetails.name",
+            $ifNull: ["$familyDetails", null],
           },
           user: {
-            _id: "$userDetails._id",
-            nickname: "$userDetails.nickname",
-            individual: "$userDetails.individual",
+            $ifNull: ["$userDetails", null],
           },
           createdAt: {
-            $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$createdAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$createdAt", // Date field to extract time from
-                },
-              },
-            ],
+            $dateToString: {
+              format: "%d-%m-%Y %H:%M:%S",
+              date: "$createdAt",
+            },
           },
           updatedAt: {
-            $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$updatedAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$updatedAt", // Date field to extract time from
-                },
-              },
-            ],
+            $dateToString: {
+              format: "%d-%m-%Y %H:%M:%S",
+              date: "$updatedAt",
+            },
           },
         },
       },
