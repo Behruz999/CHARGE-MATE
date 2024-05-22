@@ -183,15 +183,9 @@ async function getAllIndividualCharges(req, res) {
         },
       },
       {
-        $unwind: {
-          path: "$familyDetails",
-          preserveNullAndEmptyArrays: true, // Include documents even if familyDetails array is empty (no matching documents)
-        },
-      },
-      {
-        $unwind: {
-          path: "$userDetails",
-          preserveNullAndEmptyArrays: true,
+        $addFields: {
+          familyDetails: { $arrayElemAt: ["$familyDetails", 0] },
+          userDetails: { $arrayElemAt: ["$userDetails", 0] },
         },
       },
       {
@@ -203,47 +197,22 @@ async function getAllIndividualCharges(req, res) {
           individual: 1,
           currency: 1,
           family: {
-            _id: "$familyDetails._id",
-            name: "$familyDetails.name",
+            $ifNull: ["$familyDetails", null],
           },
           user: {
-            _id: "$userDetails._id",
-            nickname: "$userDetails.nickname",
-            individual: "$userDetails.individual",
+            $ifNull: ["$userDetails", null],
           },
           createdAt: {
-            $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$createdAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$createdAt", // Date field to extract time from
-                },
-              },
-            ],
+            $dateToString: {
+              format: "%d-%m-%Y %H:%M:%S",
+              date: "$createdAt",
+            },
           },
           updatedAt: {
-            $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$updatedAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$updatedAt", // Date field to extract time from
-                },
-              },
-            ],
+            $dateToString: {
+              format: "%d-%m-%Y %H:%M:%S",
+              date: "$updatedAt",
+            },
           },
         },
       },
