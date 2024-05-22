@@ -1,8 +1,13 @@
 const cors = require("cors");
 
+const allowedOrigins = [
+  "https://charge-mate-client.vercel.app",
+  "http://localhost:4000",
+];
+
 const corsOptions = {
-  origin: "https://charge-mate-client.vercel.app",
-  methods: "GET,HEAD,OPTIONS,POST,PUT,PATCH,DELETE", // Include DELETE method
+  origin: allowedOrigins,
+  methods: "GET,HEAD,OPTIONS,POST,PUT,PATCH,DELETE",
   allowedHeaders:
     "Origin, X-Requested-With, Content-Type, Accept, Authorization",
 };

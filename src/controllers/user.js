@@ -96,60 +96,34 @@ async function getOne(req, res) {
         },
       },
       {
-        $unwind: {
-          path: "$familyDetails",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
         $project: {
           nickname: 1,
           password: 1,
           individual: 1,
-          family: {
-            $cond: {
-              if: { $eq: ["$familyDetails", {}] }, // Check if familyDetails is an empty object
-              then: null, // Replace familyDetails with null if it's an empty object
-              else: {
-                _id: "$familyDetails._id",
-                name: "$familyDetails.name",
-              },
-            },
-          },
           role: 1,
           createdAt: {
             $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$createdAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$createdAt", // Date field to extract time from
-                },
-              },
+              { $dateToString: { format: "%d-%m-%Y", date: "$createdAt" } },
+              " ",
+              { $dateToString: { format: "%H:%M:%S", date: "$createdAt" } },
             ],
           },
           updatedAt: {
             $concat: [
-              {
-                $dateToString: {
-                  format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                  date: "$updatedAt", // Date field to format
-                },
-              },
-              " ", // Separator between date and time
-              {
-                $dateToString: {
-                  format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                  date: "$updatedAt", // Date field to extract time from
-                },
-              },
+              { $dateToString: { format: "%d-%m-%Y", date: "$updatedAt" } },
+              " ",
+              { $dateToString: { format: "%H:%M:%S", date: "$updatedAt" } },
             ],
+          },
+          family: {
+            $cond: {
+              if: { $eq: [{ $size: "$familyDetails" }, 0] }, // Check if familyDetails array is empty
+              then: null,
+              else: {
+                _id: { $arrayElemAt: ["$familyDetails._id", 0] },
+                name: { $arrayElemAt: ["$familyDetails.name", 0] },
+              },
+            },
           },
         },
       },
@@ -160,6 +134,7 @@ async function getOne(req, res) {
     return res.status(500).send({ msg: err.message ? err.message : err });
   }
 }
+
 
 async function editOne(req, res) {
   try {

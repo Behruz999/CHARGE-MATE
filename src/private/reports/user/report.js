@@ -187,6 +187,15 @@ async function getIndividualCharges(req, res) {
         },
       ]);
     } else if (!dateRange) {
+      // const matchCriteria = {
+      //   user: new ObjectId(existUser._id),
+      //   individual: existUser.individual,
+      // };
+
+      // if (currency) {
+      //   matchCriteria.currency = currency;
+      // }
+
       indvReports = await Charge.aggregate([
         {
           $match: {
@@ -198,9 +207,29 @@ async function getIndividualCharges(req, res) {
         {
           $lookup: {
             from: "families",
-            localField: "family",
-            foreignField: "_id",
+            let: { familyId: "$family" },
+            pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$familyId"] } } }],
             as: "familyDetails",
+          },
+        },
+        {
+          $addFields: {
+            familyDetails: { $arrayElemAt: ["$familyDetails", 0] },
+            family: {
+              $cond: {
+                if: {
+                  $or: [
+                    { $eq: ["$familyDetails", null] },
+                    { $eq: ["$familyDetails", []] },
+                  ],
+                },
+                then: null,
+                else: {
+                  _id: "$familyDetails._id",
+                  name: "$familyDetails.name",
+                },
+              },
+            },
           },
         },
         {
@@ -212,10 +241,10 @@ async function getIndividualCharges(req, res) {
           },
         },
         {
-          $unwind: "$familyDetails",
-        },
-        {
-          $unwind: "$consumer",
+          $unwind: {
+            path: "$consumer",
+            preserveNullAndEmptyArrays: true,
+          },
         },
         {
           $group: {
@@ -223,8 +252,8 @@ async function getIndividualCharges(req, res) {
             qty: { $sum: "$quantity" },
             total: { $sum: { $multiply: ["$quantity", "$price"] } },
             created: { $first: "$createdAt" },
-            consumer: { $first: "$consumer" }, // Use $first to keep the first encountered value of 'consumer' within each group
-            familys: { $first: "$familyDetails" },
+            consumer: { $first: "$consumer" },
+            family: { $first: "$family" },
           },
         },
         {
@@ -234,10 +263,7 @@ async function getIndividualCharges(req, res) {
             quantity: "$qty",
             price: "$_id.price",
             total: 1,
-            family: {
-              _id: "$familys._id",
-              name: "$familys.name",
-            },
+            family: 1,
             user: {
               _id: "$consumer._id",
               nickname: "$consumer.nickname",
@@ -245,20 +271,97 @@ async function getIndividualCharges(req, res) {
             },
             time: {
               $dateToString: {
-                format: "%H:%M:%S", // Format string for "HH:MM:SS"
-                date: "$created", // Date field to extract time from
+                format: "%H:%M:%S",
+                date: "$created",
               },
             },
             date: {
               $dateToString: {
-                format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
-                date: "$created", // Date field to format
+                format: "%d-%m-%Y",
+                date: "$created",
               },
             },
             _id: 0,
           },
         },
       ]);
+
+      // indvReports = await Charge.aggregate([
+      //   {
+      //     $match: {
+      //       user: new ObjectId(existUser._id),
+      //       individual: existUser.individual,
+      //       $or: [
+      //         { currency: { $exists: false } }, // Handle case where currency is not present
+      //         { currency: { $eq: currency } }, // Handle case where currency matches the provided value
+      //       ],
+      //     },
+      //     // ...(currency ? { currency } : {}),
+      //   },
+      //   {
+      //     $lookup: {
+      //       from: "families",
+      //       localField: "family",
+      //       foreignField: "_id",
+      //       as: "familyDetails",
+      //     },
+      //   },
+      //   {
+      //     $lookup: {
+      //       from: "users",
+      //       localField: "user",
+      //       foreignField: "_id",
+      //       as: "consumer",
+      //     },
+      //   },
+      //   {
+      //     $unwind: "$familyDetails",
+      //   },
+      //   {
+      //     $unwind: "$consumer",
+      //   },
+      //   {
+      //     $group: {
+      //       _id: { title: "$title", price: "$price", currency: "$currency" },
+      //       qty: { $sum: "$quantity" },
+      //       total: { $sum: { $multiply: ["$quantity", "$price"] } },
+      //       created: { $first: "$createdAt" },
+      //       consumer: { $first: "$consumer" }, // Use $first to keep the first encountered value of 'consumer' within each group
+      //       familys: { $first: "$familyDetails" },
+      //     },
+      //   },
+      //   {
+      //     $project: {
+      //       title: "$_id.title",
+      //       currency: "$_id.currency",
+      //       quantity: "$qty",
+      //       price: "$_id.price",
+      //       total: 1,
+      //       family: {
+      //         _id: "$familys._id",
+      //         name: "$familys.name",
+      //       },
+      //       user: {
+      //         _id: "$consumer._id",
+      //         nickname: "$consumer.nickname",
+      //         individual: "$consumer.individual",
+      //       },
+      //       time: {
+      //         $dateToString: {
+      //           format: "%H:%M:%S", // Format string for "HH:MM:SS"
+      //           date: "$created", // Date field to extract time from
+      //         },
+      //       },
+      //       date: {
+      //         $dateToString: {
+      //           format: "%d-%m-%Y", // Format string for "DD-MM-YYYY"
+      //           date: "$created", // Date field to format
+      //         },
+      //       },
+      //       _id: 0,
+      //     },
+      //   },
+      // ]);
     }
     // If provides date details
     else {
