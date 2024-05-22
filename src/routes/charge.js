@@ -21,7 +21,7 @@ router.route("/getfamilycharges").get(authorization, getAllFamilyCharges);
 
 router.route("/:id").get(validateParams, getOne);
 
-router.route("/:id").patch(validateParams, editOne);
+router.route("/:id").patch(authorization, validateParams, editOne);
 
 router.route("/:id").delete(validateParams, deleteOne);
 

@@ -418,7 +418,6 @@ async function getAllFamilyCharges(req, res) {
 
 async function editOne(req, res) {
   try {
-    console.log(req.body);
     const modifiedCharge = await Charge.findByIdAndUpdate(
       req.params.id,
       req.body,

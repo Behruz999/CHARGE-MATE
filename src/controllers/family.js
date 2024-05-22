@@ -163,7 +163,7 @@ async function getOne(req, res) {
       {
         $project: {
           name: 1,
-          users: '$usersDetails',
+          users: "$usersDetails",
           members: { $size: "$users" },
           password: 1,
           createdAt: {
@@ -310,7 +310,7 @@ async function editOne(req, res) {
         new: true,
         runValidators: true,
       }
-    ).populate("users", "nickname");
+    );
     if (modifiedFamily == null) {
       return res.status(404).send({ msg: "Family not found !" });
     }
