@@ -11,7 +11,7 @@ const bodySchema = Joi.object({
   quantity: Joi.number(),
   price: Joi.number().required(),
   individual: Joi.boolean(),
-  family: Joi.string().hex().length(24),
+  family: Joi.string().hex().length(24).allow(null),
 }).options({ allowUnknown: false });
 
 async function validateParams(req, res, next) {
