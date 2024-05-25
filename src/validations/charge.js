@@ -6,7 +6,7 @@ const paramsSchema = Joi.object({
 
 const bodySchema = Joi.object({
   title: Joi.string().required(),
-  category: Joi.string(),
+  category: Joi.string().allow(null),
   currency: Joi.string().uppercase(),
   quantity: Joi.number(),
   price: Joi.number().required(),

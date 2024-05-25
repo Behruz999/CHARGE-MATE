@@ -51,7 +51,6 @@ function inspectDate(day, month, year, todayFlag, yesterdayFlag) {
   day = parseInt(day);
   month = parseInt(month);
   year = parseInt(year);
-
   let startDate, endDate;
 
   if (todayFlag) {
